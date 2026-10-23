@@ -1,0 +1,1457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Posiciones de Soldeo - CFGM Soldadura y Calderería (SAN - SMAW 111)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background-color: #070b12;
+            color: #f8fafc;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+            cursor: grab;
+        }
+        canvas:active {
+            cursor: grabbing;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.90);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        .pos-btn {
+            transition: all 0.18s ease;
+        }
+        .pos-btn.active {
+            background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%);
+            color: #090d16;
+            border-color: #fbbf24;
+            box-shadow: 0 4px 16px rgba(245, 158, 11, 0.35);
+        }
+        .wheel-node {
+            cursor: pointer;
+            transition: filter 0.2s ease;
+        }
+        .wheel-node:hover {
+            filter: drop-shadow(0 0 8px rgba(56, 189, 248, 0.85));
+        }
+    </style>
+</head>
+<body class="relative w-screen h-screen overflow-hidden flex flex-col justify-between">
+
+    <div id="canvas-container" class="w-full h-full fixed inset-0 z-0"></div>
+
+    <header class="relative z-20 w-full px-3 pt-2.5 pb-1 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
+        <div class="glass-panel px-3.5 py-2 rounded-2xl flex items-center gap-3 pointer-events-auto shadow-lg">
+            <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center shrink-0 shadow">
+                <i data-lucide="flame" class="w-5 h-5 text-slate-950"></i>
+            </div>
+            <div class="leading-tight">
+                <div class="flex flex-wrap items-center gap-1.5 text-[10px] font-extrabold uppercase tracking-wider text-amber-400">
+                    <span>CFGM SOLDADURA Y CALDERERÍA</span>
+                    <span class="text-slate-600">•</span>
+                    <span class="text-sky-400">Módulo: SAN</span>
+                    <span class="text-slate-600">•</span>
+                    <span class="text-emerald-400">Procedimiento: SMAW-111</span>
+                </div>
+                <h1 class="font-black text-sm sm:text-base text-white tracking-tight">Posiciones de soldeo</h1>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5 pointer-events-auto">
+            <div class="glass-panel p-1 rounded-2xl flex items-center gap-1 shadow-lg">
+                <button id="norm-asme" type="button" class="px-3 py-1.5 rounded-xl text-xs font-extrabold bg-amber-500 text-slate-950 transition cursor-pointer">
+                    Norma ASME / AWS
+                </button>
+                <button id="norm-iso" type="button" class="px-3 py-1.5 rounded-xl text-xs font-extrabold text-slate-300 hover:text-white transition cursor-pointer">
+                    UNE-EN ISO 6947
+                </button>
+            </div>
+
+            <button id="btn-toggle-arc" type="button" class="glass-panel hover:bg-slate-800 text-amber-300 px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer" title="Pausar o reanudar movimiento">
+                <i data-lucide="zap" class="w-3.5 h-3.5"></i>
+                <span id="arc-btn-text" class="hidden sm:inline">Pausar</span>
+            </button>
+
+            <button id="btn-reset-cam" type="button" class="glass-panel hover:bg-slate-800 text-sky-300 px-2.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1 transition cursor-pointer" title="Centrar cámara 3D">
+                <i data-lucide="focus" class="w-3.5 h-3.5"></i>
+            </button>
+
+            <button id="btn-xr-ar" type="button" class="glass-panel hover:bg-sky-500 hover:text-slate-950 text-sky-300 px-2.5 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 transition cursor-pointer" title="Realidad Mixta en Meta Quest 3">
+                <i data-lucide="scan-eye" class="w-3.5 h-3.5"></i>
+                <span>AR</span>
+            </button>
+
+            <button id="btn-xr-vr" type="button" class="glass-panel hover:bg-indigo-500 text-indigo-300 hover:text-white px-2.5 py-1.5 rounded-xl text-xs font-extrabold flex items-center gap-1 transition cursor-pointer" title="Realidad Virtual en Meta Quest 3">
+                <i data-lucide="glasses" class="w-3.5 h-3.5"></i>
+                <span>VR</span>
+            </button>
+        </div>
+    </header>
+
+    <main class="relative z-10 flex-1 w-full px-3 pb-2.5 flex flex-col sm:flex-row items-stretch sm:items-end justify-between gap-2 pointer-events-none overflow-hidden">
+
+        <!-- AVISO INTERMITENTE EXCLUSIVO PARA 1G TUBERÍA -->
+        <div id="pipe-1g-notice" class="hidden fixed top-16 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+            <div class="animate-pulse bg-amber-500/20 border border-amber-400 text-amber-300 px-3 py-1 rounded-full text-[11px] sm:text-xs font-extrabold tracking-wide shadow-lg backdrop-blur-md flex items-center gap-1.5">
+                <span class="w-2 h-2 rounded-full bg-amber-400 animate-ping"></span>
+                <span>🔄 Aquí lo que gira es el tubo</span>
+            </div>
+        </div>
+
+        <!-- PANEL IZQUIERDO: Selector compacto -->
+        <aside class="w-full sm:w-64 glass-panel rounded-2xl p-2.5 shadow-2xl flex flex-col gap-2 pointer-events-auto max-h-[38vh] sm:max-h-[calc(100vh-88px)] overflow-y-auto mt-auto sm:mt-0">
+            
+            <!-- ASME / AWS (Separado en A Tope G, Ángulo F y Tubería) -->
+            <div id="panel-asme" class="flex flex-col gap-2">
+                <div class="grid grid-cols-3 gap-1 bg-slate-900/95 p-1 rounded-xl border border-slate-800 text-[11px] font-extrabold">
+                    <button type="button" data-asme-tab="G" class="asme-tab-btn py-1 rounded-lg bg-amber-500 text-slate-950 transition cursor-pointer">
+                        A Tope (G)
+                    </button>
+                    <button type="button" data-asme-tab="F" class="asme-tab-btn py-1 rounded-lg text-slate-300 hover:text-white transition cursor-pointer">
+                        Ángulo (F)
+                    </button>
+                    <button type="button" data-asme-tab="PIPE" class="asme-tab-btn py-1 rounded-lg text-slate-300 hover:text-white transition cursor-pointer">
+                        Tubería
+                    </button>
+                </div>
+                <div id="asme-buttons-grid" class="grid grid-cols-2 gap-1.5"></div>
+            </div>
+
+            <!-- UNE-EN ISO 6947: Rueda horaria exacta (PA arriba 12h, sentido horario) + Tubería -->
+            <div id="panel-iso" class="hidden flex-col gap-2">
+                <div class="grid grid-cols-2 gap-1 bg-slate-900/95 p-1 rounded-xl border border-slate-800 text-[11px] font-extrabold">
+                    <button type="button" data-iso-tab="CIRCLE" class="iso-tab-btn py-1 rounded-lg bg-sky-400 text-slate-950 transition cursor-pointer">
+                        Chapas (Rueda ISO)
+                    </button>
+                    <button type="button" data-iso-tab="PIPE" class="iso-tab-btn py-1 rounded-lg text-slate-300 hover:text-white transition cursor-pointer">
+                        Tubería
+                    </button>
+                </div>
+
+                <div id="iso-circle-container" class="flex flex-col items-center">
+                    <div class="w-full flex justify-center bg-slate-950/90 rounded-xl p-1 border border-slate-800">
+                        <svg id="iso-wheel-svg" viewBox="0 0 305 255" class="w-full max-w-[220px] h-auto select-none">
+                            <defs>
+                                <marker id="arrow-center" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">
+                                    <path d="M 0 1.5 L 9 5 L 0 8.5 z" fill="#38bdf8" />
+                                </marker>
+                                <marker id="arrow-active" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                                    <path d="M 0 1 L 10 5 L 0 9 z" fill="#f59e0b" />
+                                </marker>
+                            </defs>
+
+                            <circle cx="158" cy="128" r="88" fill="none" stroke="#1e293b" stroke-width="8" />
+                            <circle cx="158" cy="128" r="88" fill="none" stroke="#38bdf8" stroke-width="1.5" stroke-dasharray="4 4" opacity="0.5" />
+
+                            <!-- Flechas radiales apuntando al centro (PA arriba 12h, sentido horario) -->
+                            <line id="arrow-pa_1g" x1="158" y1="64" x2="158" y2="93" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow-center)" />
+                            <line id="arrow-pb_2f" x1="205" y1="81" x2="183" y2="103" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow-center)" />
+                            <line id="arrow-pc_2g" x1="224" y1="128" x2="195" y2="128" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow-center)" />
+                            <line id="arrow-pd_4f" x1="205" y1="175" x2="183" y2="153" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow-center)" />
+                            <line id="arrow-pe_4g" x1="158" y1="192" x2="158" y2="163" stroke="#38bdf8" stroke-width="3" marker-end="url(#arrow-center)" />
+
+                            <circle cx="158" cy="128" r="24" fill="#0f172a" stroke="#475569" stroke-width="2" />
+                            <text x="158" y="131" text-anchor="middle" fill="#cbd5e1" font-size="8.5" font-weight="800">PIEZA</text>
+
+                            <!-- PA (Arriba 12:00h - Plana) -->
+                            <g class="wheel-node" data-iso-node="pa_1g" transform="translate(158, 36)">
+                                <circle r="22" fill="#f59e0b" stroke="#fde68a" stroke-width="2.5" class="node-bg" />
+                                <text y="5" text-anchor="middle" fill="#090d16" font-size="14" font-weight="900">PA</text>
+                            </g>
+
+                            <!-- PB (1:30h Sentido Horario - Horizontal en Ángulo) -->
+                            <g class="wheel-node" data-iso-node="pb_2f" transform="translate(224, 62)">
+                                <circle r="22" fill="#0f172a" stroke="#38bdf8" stroke-width="2.5" class="node-bg" />
+                                <text y="5" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="900">PB</text>
+                            </g>
+
+                            <!-- PC (3:00h Sentido Horario - Cornisa) -->
+                            <g class="wheel-node" data-iso-node="pc_2g" transform="translate(250, 128)">
+                                <circle r="22" fill="#0f172a" stroke="#38bdf8" stroke-width="2.5" class="node-bg" />
+                                <text y="5" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="900">PC</text>
+                            </g>
+
+                            <!-- PD (4:30h Sentido Horario - Bajo Techo en Ángulo) -->
+                            <g class="wheel-node" data-iso-node="pd_4f" transform="translate(224, 194)">
+                                <circle r="22" fill="#0f172a" stroke="#38bdf8" stroke-width="2.5" class="node-bg" />
+                                <text y="5" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="900">PD</text>
+                            </g>
+
+                            <!-- PE (Abajo 6:00h Sentido Horario - Bajo Techo) -->
+                            <g class="wheel-node" data-iso-node="pe_4g" transform="translate(158, 220)">
+                                <circle r="22" fill="#0f172a" stroke="#38bdf8" stroke-width="2.5" class="node-bg" />
+                                <text y="5" text-anchor="middle" fill="#ffffff" font-size="14" font-weight="900">PE</text>
+                            </g>
+
+                            <!-- PF Vertical Ascendente (↑) -->
+                            <g class="wheel-node" data-iso-node="pf_3g" transform="translate(46, 94)">
+                                <rect x="-26" y="-19" width="52" height="38" rx="10" fill="#0f172a" stroke="#10b981" stroke-width="2.5" class="node-bg" />
+                                <text y="5" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="900">PF ↑</text>
+                            </g>
+
+                            <!-- PG Vertical Descendente (↓) -->
+                            <g class="wheel-node" data-iso-node="pg_3g" transform="translate(46, 162)">
+                                <rect x="-26" y="-19" width="52" height="38" rx="10" fill="#0f172a" stroke="#10b981" stroke-width="2.5" class="node-bg" />
+                                <text y="5" text-anchor="middle" fill="#ffffff" font-size="13" font-weight="900">PG ↓</text>
+                            </g>
+                        </svg>
+                    </div>
+
+                    <div id="iso-variant-bar" class="w-full mt-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800 flex items-center justify-between gap-1">
+                        <span class="text-[10px] text-slate-400 font-bold pl-1">Unión:</span>
+                        <div id="iso-variant-btns" class="flex gap-1"></div>
+                    </div>
+                </div>
+
+                <div id="iso-pipe-container" class="hidden flex-col gap-1.5">
+                    <div id="iso-pipe-list" class="grid grid-cols-1 gap-1.5"></div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- TARJETA MINIMALISTA INFERIOR DERECHA: Solo equivalencia y nombre común, sin tapar la pieza -->
+        <aside class="glass-panel rounded-2xl px-3.5 py-2 shadow-xl flex items-center justify-between sm:justify-end gap-3 pointer-events-auto self-end">
+            <div class="leading-tight">
+                <span id="badge-type" class="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                    Chapas a Tope (G)
+                </span>
+                <h2 id="info-common-name" class="text-xs sm:text-sm font-black text-white mt-0.5">
+                    Plana (Sobremesa)
+                </h2>
+            </div>
+
+            <div class="flex items-center gap-1.5 shrink-0">
+                <div id="box-asme" class="bg-slate-900/95 border-2 border-amber-500 rounded-xl px-2.5 py-1 text-center min-w-[64px]">
+                    <span class="text-[8px] font-bold uppercase text-amber-400 block">ASME</span>
+                    <span id="info-aws" class="text-sm sm:text-base font-black text-white">1G</span>
+                </div>
+                <div id="box-iso" class="bg-slate-900/95 border border-slate-700 rounded-xl px-2.5 py-1 text-center min-w-[64px]">
+                    <span class="text-[8px] font-bold uppercase text-sky-400 block">ISO 6947</span>
+                    <span id="info-iso" class="text-sm sm:text-base font-black text-white">PA</span>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <div id="toast" class="fixed top-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-xl bg-slate-900 border border-amber-500/40 text-amber-300 text-xs font-bold shadow-2xl opacity-0 pointer-events-none transition-opacity duration-300">
+        Listo
+    </div>
+
+    <script type="module">
+        import * as THREE from 'three';
+        import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+        import { XRControllerModelFactory } from 'three/addons/webxr/XRControllerModelFactory.js';
+
+        lucide.createIcons();
+
+        // Base de datos rigurosa actualizada según UNE-EN ISO 6947 y ASME Sección IX / AWS
+        // En Three.js: X = izquierda/derecha, Y = abajo/arriba (vertical), Z = hacia el soldador
+        const WELDING_POSITIONS = [
+            // ================= CHAPAS A TOPE (G) =================
+            {
+                id: 'pa_1g',
+                asmeGroup: 'G',
+                asmeCode: '1G',
+                typeBadge: 'Chapas a Tope (G)',
+                commonName: 'Plana (Sobremesa)',
+                iso: 'PA',
+                aws: '1G',
+                directionText: 'Horizontal en plano (→)',
+                desc: 'Probeta horizontal sobre el banco. El electrodo baja desde arriba con un ángulo de avance de 15° en sentido de arrastre.',
+                geometryType: 'butt_plate',
+                workpiecePos: [0, 1.23, 0],
+                workpieceRot: [0, 0, 0],
+                weldPath: { start: [-0.13, 0.009, 0], end: [0.13, 0.009, 0] },
+                electrodeDir: new THREE.Vector3(-0.28, 0.94, 0.18).normalize()
+            },
+            {
+                id: 'pc_2g',
+                asmeGroup: 'G',
+                asmeCode: '2G',
+                typeBadge: 'Chapas a Tope (G)',
+                commonName: 'Horizontal (Cornisa)',
+                iso: 'PC',
+                aws: '2G',
+                directionText: 'Horizontal en pared vertical (→)',
+                desc: 'Chapas en plano vertical con la junta horizontal (cornisa). El electrodo entra desde el frente apuntando ligeramente hacia el bisel superior.',
+                geometryType: 'butt_plate',
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [Math.PI / 2, 0, 0],
+                weldPath: { start: [-0.13, 0.010, 0], end: [0.13, 0.010, 0] },
+                electrodeDir: new THREE.Vector3(-0.26, 0.94, -0.20).normalize()
+            },
+            {
+                id: 'pf_3g',
+                asmeGroup: 'G',
+                asmeCode: '3G (Asc.)',
+                typeBadge: 'Chapas a Tope (G)',
+                commonName: 'Vertical Ascendente',
+                iso: 'PF (↑)',
+                aws: '3G (Asc.)',
+                directionText: 'Vertical subiendo (↑)',
+                desc: 'Chapas y junta en vertical. El soldeo avanza de abajo hacia arriba (↑) con ligero movimiento de oscilación lateral (zigzag) para sostener el baño.',
+                geometryType: 'butt_plate_vertical',
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [0, 0, 0],
+                weldPath: { start: [0, -0.13, 0.010], end: [0, 0.13, 0.010] },
+                electrodeDir: new THREE.Vector3(0.10, -0.26, 0.96).normalize(),
+                weaveAxis: 'x'
+            },
+            {
+                id: 'pg_3g',
+                asmeGroup: 'G',
+                asmeCode: '3G (Desc.)',
+                typeBadge: 'Chapas a Tope (G)',
+                commonName: 'Vertical Descendente',
+                iso: 'PG (↓)',
+                aws: '3G (Desc.)',
+                directionText: 'Vertical bajando (↓)',
+                desc: 'Chapas y junta en vertical soldando de arriba hacia abajo (↓) con avance rápido y el electrodo inclinado apuntando hacia arriba.',
+                geometryType: 'butt_plate_vertical',
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [0, 0, 0],
+                weldPath: { start: [0, 0.13, 0.010], end: [0, -0.13, 0.010] },
+                electrodeDir: new THREE.Vector3(0.10, 0.38, 0.92).normalize()
+            },
+            {
+                id: 'pe_4g',
+                asmeGroup: 'G',
+                asmeCode: '4G',
+                typeBadge: 'Chapas a Tope (G)',
+                commonName: 'Bajo Techo (Sobrecabeza)',
+                iso: 'PE',
+                aws: '4G',
+                directionText: 'Horizontal bajo techo (→)',
+                desc: 'La probeta se sitúa por encima del soldador y el electrodo apunta desde abajo hacia arriba con arco muy corto.',
+                geometryType: 'butt_plate',
+                workpiecePos: [0, 1.38, 0],
+                workpieceRot: [Math.PI, 0, 0],
+                weldPath: { start: [-0.13, 0.009, 0], end: [0.13, 0.009, 0] },
+                electrodeDir: new THREE.Vector3(-0.25, 0.95, 0.14).normalize()
+            },
+
+            // ================= ÁNGULO INTERIOR (F) =================
+            {
+                id: 'pa_1f',
+                asmeGroup: 'F',
+                asmeCode: '1F',
+                typeBadge: 'Ángulo Interior (F)',
+                commonName: 'Plana en Ángulo (Cuna 45°)',
+                iso: 'PA',
+                aws: '1F',
+                directionText: 'Horizontal en cuna a 45° (→)',
+                desc: 'Unión en T girada 45° como una cuna para que el cordón en ángulo se deposite totalmente plano por gravedad (PA).',
+                geometryType: 'tee_plate',
+                workpiecePos: [0, 1.22, 0],
+                workpieceRot: [-Math.PI / 4, 0, 0],
+                weldPath: { start: [-0.13, 0.012, 0.012], end: [0.13, 0.012, 0.012] },
+                electrodeDir: new THREE.Vector3(-0.25, 0.68, 0.68).normalize()
+            },
+            {
+                id: 'pb_2f',
+                asmeGroup: 'F',
+                asmeCode: '2F',
+                typeBadge: 'Ángulo Interior (F)',
+                commonName: 'Horizontal en Ángulo (Rincón)',
+                iso: 'PB',
+                aws: '2F',
+                directionText: 'Horizontal en rincón (→)',
+                desc: 'Una chapa horizontal y otra vertical formando un rincón. El electrodo entra a 45° entre ambas caras.',
+                geometryType: 'tee_plate',
+                workpiecePos: [0, 1.20, 0],
+                workpieceRot: [0, 0, 0],
+                weldPath: { start: [-0.13, 0.012, 0.012], end: [0.13, 0.012, 0.012] },
+                electrodeDir: new THREE.Vector3(-0.25, 0.68, 0.68).normalize()
+            },
+            {
+                id: 'pf_3f',
+                asmeGroup: 'F',
+                asmeCode: '3F (Asc.)',
+                typeBadge: 'Ángulo Interior (F)',
+                commonName: 'Vertical en Ángulo (Ascendente)',
+                iso: 'PF (↑)',
+                aws: '3F (Asc.)',
+                directionText: 'Vertical subiendo en rincón (↑)',
+                desc: 'Unión en T colocada verticalmente frente al soldador, depositando el cordón en el rincón de abajo hacia arriba (↑) con oscilación.',
+                geometryType: 'tee_plate_vertical',
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [0, 0, 0],
+                weldPath: { start: [0.012, -0.13, 0.012], end: [0.012, 0.13, 0.012] },
+                electrodeDir: new THREE.Vector3(0.66, -0.26, 0.70).normalize(),
+                weaveAxis: 'xz'
+            },
+            {
+                id: 'pg_3f',
+                asmeGroup: 'F',
+                asmeCode: '3F (Desc.)',
+                typeBadge: 'Ángulo Interior (F)',
+                commonName: 'Vertical en Ángulo (Descendente)',
+                iso: 'PG (↓)',
+                aws: '3F (Desc.)',
+                directionText: 'Vertical bajando en rincón (↓)',
+                desc: 'Unión en T colocada verticalmente soldando el rincón desde arriba hacia abajo (↓).',
+                geometryType: 'tee_plate_vertical',
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [0, 0, 0],
+                weldPath: { start: [0.012, 0.13, 0.012], end: [0.012, -0.13, 0.012] },
+                electrodeDir: new THREE.Vector3(0.64, 0.35, 0.68).normalize()
+            },
+            {
+                id: 'pd_4f',
+                asmeGroup: 'F',
+                asmeCode: '4F',
+                typeBadge: 'Ángulo Interior (F)',
+                commonName: 'Bajo Techo en Ángulo (Rincón)',
+                iso: 'PD',
+                aws: '4F',
+                directionText: 'Horizontal bajo techo en rincón (→)',
+                desc: 'Unión en T invertida por encima del soldador depositando el cordón en el rincón interior.',
+                geometryType: 'tee_plate',
+                workpiecePos: [0, 1.38, 0],
+                workpieceRot: [Math.PI / 2, 0, 0],
+                weldPath: { start: [-0.13, 0.012, 0.012], end: [0.13, 0.012, 0.012] },
+                electrodeDir: new THREE.Vector3(-0.25, 0.68, 0.68).normalize()
+            },
+
+            // ================= TUBERÍA (1G, 2G, 5F, 5G, 6G) =================
+            {
+                id: 'pipe_1g',
+                asmeGroup: 'PIPE',
+                asmeCode: '1G (Rot.)',
+                typeBadge: 'Tubería a Tope (G)',
+                commonName: 'Tubo Horizontal Rotando (Plana)',
+                iso: 'PA (Tubo rot.)',
+                aws: '1G (Rotado)',
+                directionText: 'El tubo gira y se suelda arriba (12h)',
+                desc: 'Tubería de eje horizontal que gira sobre su eje mientras el electrodo suelda fijo en la parte superior (posición plana).',
+                geometryType: 'pipe_butt',
+                isRotatingPipe: true,
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [0, 0, Math.PI / 2],
+                weldPath: { type: 'pipe_1g_rot', radius: 0.078 },
+                electrodeDir: new THREE.Vector3(0.96, 0, -0.28).normalize()
+            },
+            {
+                id: 'pipe_2g',
+                asmeGroup: 'PIPE',
+                asmeCode: '2G (Tubo)',
+                typeBadge: 'Tubería Fija a Tope',
+                commonName: 'Tubo Vertical Fijo (Cornisa)',
+                iso: 'PC (Tubo)',
+                aws: '2G (Tubo)',
+                directionText: 'Horizontal alrededor del tubo vertical (→)',
+                desc: 'Tubería de eje vertical fija soldada a tope avanzando horizontalmente en cornisa.',
+                geometryType: 'pipe_butt',
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [0, 0, 0],
+                weldPath: { type: 'circle_2g_horiz', radius: 0.078 },
+                electrodeDir: new THREE.Vector3(0.25, 0.30, 0.92).normalize()
+            },
+            {
+                id: 'pipe_5f',
+                asmeGroup: 'PIPE',
+                asmeCode: '5F',
+                typeBadge: 'Tubería en Ángulo',
+                commonName: 'Tubo Horizontal Fijo con Chapa',
+                iso: 'PH / PJ (Ángulo)',
+                aws: '5F',
+                directionText: 'Perimetral en tubo fijo',
+                desc: 'Tubo de eje horizontal fijo soldado en ángulo contra una chapa vertical.',
+                geometryType: 'pipe_plate_5f',
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [0, 0, 0],
+                weldPath: { type: 'circle_5f', radius: 0.072 },
+                electrodeDir: new THREE.Vector3(0, 0.7, 0.7).normalize()
+            },
+            {
+                id: 'pipe_ph',
+                asmeGroup: 'PIPE',
+                asmeCode: '5G (Asc.)',
+                typeBadge: 'Tubería Fija a Tope',
+                commonName: 'Tubo Horizontal Fijo (Ascendente)',
+                iso: 'PH (↑)',
+                aws: '5G (Asc.)',
+                directionText: 'Ascendente (6h a 12h ↑)',
+                desc: 'Tubería de eje horizontal fija soldada a tope subiendo desde las 6h (bajo techo) hasta las 12h (plana).',
+                geometryType: 'pipe_butt',
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [0, 0, Math.PI / 2],
+                weldPath: { type: 'circle_butt_up', radius: 0.078 },
+                electrodeDir: new THREE.Vector3(0.25, 0.95, 0).normalize()
+            },
+            {
+                id: 'pipe_pj',
+                asmeGroup: 'PIPE',
+                asmeCode: '5G (Desc.)',
+                typeBadge: 'Tubería Fija a Tope',
+                commonName: 'Tubo Horizontal Fijo (Descendente)',
+                iso: 'PJ (↓)',
+                aws: '5G (Desc.)',
+                directionText: 'Descendente (12h a 6h ↓)',
+                desc: 'Tubería de eje horizontal fija soldada a tope bajando desde las 12h hasta las 6h.',
+                geometryType: 'pipe_butt',
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [0, 0, Math.PI / 2],
+                weldPath: { type: 'circle_butt_down', radius: 0.078 },
+                electrodeDir: new THREE.Vector3(0.25, 0.95, 0).normalize()
+            },
+            {
+                id: 'pipe_hl045',
+                asmeGroup: 'PIPE',
+                asmeCode: '6G',
+                typeBadge: 'Tubería Fija a 45°',
+                commonName: 'Tubo Fijo Inclinado a 45°',
+                iso: 'H-L045 (PH45)',
+                aws: '6G',
+                directionText: 'Ascendente a 45° (↑)',
+                desc: 'Tubería fija inclinada a 45° soldada a tope en sentido ascendente.',
+                geometryType: 'pipe_butt',
+                workpiecePos: [0, 1.25, 0],
+                workpieceRot: [0, 0, Math.PI / 4],
+                weldPath: { type: 'circle_butt_up', radius: 0.078 },
+                electrodeDir: new THREE.Vector3(0.3, 0.92, 0.2).normalize()
+            }
+        ];
+
+        const state = {
+            normMode: 'ASME',
+            asmeTab: 'G',
+            isoTab: 'CIRCLE',
+            currentPos: WELDING_POSITIONS[0],
+            isWeldingAnim: true,
+            weldProgress: 0
+        };
+
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x070b12);
+
+        const camera = new THREE.PerspectiveCamera(48, window.innerWidth / window.innerHeight, 0.01, 30);
+        camera.position.set(0.36, 1.44, 0.58);
+
+        const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        renderer.xr.enabled = true;
+        container.appendChild(renderer.domElement);
+
+        const controls = new OrbitControls(camera, renderer.domElement);
+        controls.target.set(0, 1.25, 0);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.06;
+        controls.update();
+
+        scene.add(new THREE.AmbientLight(0xdbeafe, 0.85));
+        const dirLight = new THREE.DirectionalLight(0xffffff, 1.6);
+        dirLight.position.set(1.5, 3, 2);
+        scene.add(dirLight);
+
+        const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.65);
+        rimLight.position.set(-2, 1.5, -1.5);
+        scene.add(rimLight);
+
+        const arcLight = new THREE.PointLight(0x60a5fa, 4.5, 1.2);
+        scene.add(arcLight);
+
+        const workbenchPivot = new THREE.Group();
+        scene.add(workbenchPivot);
+
+        const workpieceGroup = new THREE.Group();
+        workbenchPivot.add(workpieceGroup);
+
+        const steelMat = new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.35, metalness: 0.82 });
+        const bevelMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.22, metalness: 0.9 });
+        const innerPipeMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.65, metalness: 0.6, side: THREE.DoubleSide });
+        const weldBeadMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.45, metalness: 0.75 });
+
+        let rotatingPipeGroup = null;
+
+        const electrodeAssembly = new THREE.Group();
+        workpieceGroup.add(electrodeAssembly);
+
+        function buildSMAWHolderAndElectrode() {
+            const holderGroup = new THREE.Group();
+
+            const arcCore = new THREE.Mesh(
+                new THREE.SphereGeometry(0.011, 16, 16),
+                new THREE.MeshBasicMaterial({ color: 0xe0f2fe })
+            );
+            holderGroup.add(arcCore);
+
+            const moltenPool = new THREE.Mesh(
+                new THREE.SphereGeometry(0.014, 16, 12),
+                new THREE.MeshBasicMaterial({ color: 0xf97316, transparent: true, opacity: 0.85 })
+            );
+            moltenPool.scale.set(1.2, 0.4, 1.2);
+            holderGroup.add(moltenPool);
+
+            const rodLength = 0.22;
+            const fluxMesh = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.0038, 0.0038, rodLength, 16),
+                new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.85, metalness: 0.1 })
+            );
+            fluxMesh.position.y = rodLength / 2 + 0.004;
+            holderGroup.add(fluxMesh);
+
+            const hotTip = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.0038, 0.0028, 0.012, 16),
+                new THREE.MeshBasicMaterial({ color: 0xfb923c })
+            );
+            hotTip.position.y = 0.006;
+            holderGroup.add(hotTip);
+
+            const clampHeadGroup = new THREE.Group();
+            clampHeadGroup.position.y = rodLength;
+            clampHeadGroup.rotation.z = -Math.PI / 2.8;
+
+            const copperJaw = new THREE.Mesh(
+                new THREE.BoxGeometry(0.032, 0.045, 0.024),
+                new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.3, metalness: 0.85 })
+            );
+            copperJaw.position.y = 0.015;
+            clampHeadGroup.add(copperJaw);
+
+            const insulatedHandle = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.016, 0.019, 0.15, 16),
+                new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.7 })
+            );
+            insulatedHandle.position.y = 0.11;
+            clampHeadGroup.add(insulatedHandle);
+
+            holderGroup.add(clampHeadGroup);
+            return holderGroup;
+        }
+        electrodeAssembly.add(buildSMAWHolderAndElectrode());
+
+        // Chispas del arco SMAW
+        const SPARK_COUNT = 34;
+        const sparkGeo = new THREE.BufferGeometry();
+        const sparkPositions = new Float32Array(SPARK_COUNT * 3);
+        const sparkVelocities = Array.from({ length: SPARK_COUNT }, () => new THREE.Vector3());
+        sparkGeo.setAttribute('position', new THREE.BufferAttribute(sparkPositions, 3));
+        const sparkSystem = new THREE.Points(
+            sparkGeo,
+            new THREE.PointsMaterial({ color: 0xfbbf24, size: 0.011, transparent: true, opacity: 0.9 })
+        );
+        scene.add(sparkSystem);
+
+        function resetSpark(idx, originWorld) {
+            sparkPositions[idx * 3] = originWorld.x;
+            sparkPositions[idx * 3 + 1] = originWorld.y;
+            sparkPositions[idx * 3 + 2] = originWorld.z;
+            sparkVelocities[idx].set((Math.random() - 0.5) * 0.8, Math.random() * 0.6 + 0.1, (Math.random() - 0.5) * 0.8);
+        }
+
+        let weldBeadMeshes = [];
+
+        function createBeveledButtPlates(isVertical) {
+            const group = new THREE.Group();
+            const length = 0.30;      // Longitud de la probeta (300 mm)
+            const plateWidth = 0.10;  // Ancho de cada chapa (100 mm)
+            const thickness = 0.016;  // Espesor de chapa (16 mm para apreciar bien el bisel y el talón)
+            const rootFace = 0.004;   // Talón / cara de la raíz (4 mm)
+            const rootGap = 0.003;    // Separación en la raíz (3 mm)
+            const bevelRun = (thickness - rootFace) * Math.tan(Math.PI / 6); // Chaflán de 30° (V de 60°)
+
+            const halfGap = rootGap / 2;
+
+            // Perfil 2D de la chapa derecha con talón vertical y bisel inclinado en V
+            const rightShape = new THREE.Shape();
+            rightShape.moveTo(halfGap, -thickness / 2);
+            rightShape.lineTo(halfGap + plateWidth, -thickness / 2);
+            rightShape.lineTo(halfGap + plateWidth, thickness / 2);
+            rightShape.lineTo(halfGap + bevelRun, thickness / 2);
+            rightShape.lineTo(halfGap, -thickness / 2 + rootFace);
+            rightShape.closePath();
+
+            // Perfil 2D de la chapa izquierda (simétrica)
+            const leftShape = new THREE.Shape();
+            leftShape.moveTo(-halfGap, -thickness / 2);
+            leftShape.lineTo(-halfGap, -thickness / 2 + rootFace);
+            leftShape.lineTo(-halfGap - bevelRun, thickness / 2);
+            leftShape.lineTo(-halfGap - plateWidth, thickness / 2);
+            leftShape.lineTo(-halfGap - plateWidth, -thickness / 2);
+            leftShape.closePath();
+
+            const extrudeOpts = { depth: length, bevelEnabled: false };
+            const rightGeo = new THREE.ExtrudeGeometry(rightShape, extrudeOpts);
+            rightGeo.translate(0, 0, -length / 2);
+
+            const leftGeo = new THREE.ExtrudeGeometry(leftShape, extrudeOpts);
+            leftGeo.translate(0, 0, -length / 2);
+
+            const rightMesh = new THREE.Mesh(rightGeo, steelMat);
+            const leftMesh = new THREE.Mesh(leftGeo, steelMat);
+            group.add(rightMesh, leftMesh);
+
+            // Superficies mecanizadas brillantes en las caras del bisel y del talón para máximo realismo
+            const bevelHyp = Math.hypot(thickness - rootFace, bevelRun);
+            const bevelAngle = Math.atan2(thickness - rootFace, bevelRun);
+
+            const rightBevelFace = new THREE.Mesh(
+                new THREE.PlaneGeometry(bevelHyp, length),
+                bevelMat
+            );
+            rightBevelFace.position.set(
+                halfGap + bevelRun / 2,
+                -thickness / 2 + rootFace + (thickness - rootFace) / 2 + 0.0002,
+                0
+            );
+            rightBevelFace.rotation.x = -Math.PI / 2;
+            rightBevelFace.rotation.y = -(Math.PI / 2 - bevelAngle);
+            group.add(rightBevelFace);
+
+            const leftBevelFace = new THREE.Mesh(
+                new THREE.PlaneGeometry(bevelHyp, length),
+                bevelMat
+            );
+            leftBevelFace.position.set(
+                -(halfGap + bevelRun / 2),
+                -thickness / 2 + rootFace + (thickness - rootFace) / 2 + 0.0002,
+                0
+            );
+            leftBevelFace.rotation.x = -Math.PI / 2;
+            leftBevelFace.rotation.y = (Math.PI / 2 - bevelAngle);
+            group.add(leftBevelFace);
+
+            // Caras del talón (root face) mecanizadas
+            const rightRootFace = new THREE.Mesh(
+                new THREE.PlaneGeometry(rootFace, length),
+                bevelMat
+            );
+            rightRootFace.position.set(halfGap - 0.0002, -thickness / 2 + rootFace / 2, 0);
+            rightRootFace.rotation.x = -Math.PI / 2;
+            rightRootFace.rotation.y = -Math.PI / 2;
+            group.add(rightRootFace);
+
+            const leftRootFace = new THREE.Mesh(
+                new THREE.PlaneGeometry(rootFace, length),
+                bevelMat
+            );
+            leftRootFace.position.set(-halfGap + 0.0002, -thickness / 2 + rootFace / 2, 0);
+            leftRootFace.rotation.x = -Math.PI / 2;
+            leftRootFace.rotation.y = Math.PI / 2;
+            group.add(leftRootFace);
+
+            if (!isVertical) {
+                // En chapas horizontales (1G, 2G, 4G), el cordón avanza a lo largo del eje X
+                group.rotation.y = Math.PI / 2;
+            } else {
+                // En chapas verticales (3G PF/PG), el canal en V sube por el eje Y mirando hacia +Z (hacia el soldador)
+                group.rotation.x = Math.PI / 2;
+            }
+            return group;
+        }
+
+        // Generador 3D de tubería hueca de pared gruesa (varias pulgadas / Schedule alto) con bisel en V, talón y aristas vivas
+        function createBeveledButtPipes() {
+            const group = new THREE.Group();
+            const outerR = 0.084;       // Radio exterior del tubo
+            const wallThick = 0.020;    // Pared gruesa (20 mm de espesor para ver el interior hueco y el bisel)
+            const innerR = outerR - wallThick;
+            const pipeLen = 0.135;      // Longitud de cada tramo de tubo
+            const rootGap = 0.0035;     // Separación en la raíz (gap)
+            const rootFace = 0.004;     // Talón (cara de la raíz)
+            const bevelH = (wallThick - rootFace) * Math.tan(Math.PI / 5.5); // Altura del chaflán en V
+            const halfGap = rootGap / 2;
+
+            // Perfil de revolución del tubo superior con vértices duplicados en esquinas para forzar ARISTAS VIVAS (sin redondeo de normales)
+            const topPts = [
+                new THREE.Vector2(innerR, halfGap),
+                new THREE.Vector2(innerR + rootFace, halfGap),
+                new THREE.Vector2(innerR + rootFace, halfGap),
+                new THREE.Vector2(outerR, halfGap + bevelH),
+                new THREE.Vector2(outerR, halfGap + bevelH),
+                new THREE.Vector2(outerR, halfGap + pipeLen),
+                new THREE.Vector2(outerR, halfGap + pipeLen),
+                new THREE.Vector2(innerR, halfGap + pipeLen),
+                new THREE.Vector2(innerR, halfGap + pipeLen),
+                new THREE.Vector2(innerR, halfGap)
+            ];
+            const topPipeGeo = new THREE.LatheGeometry(topPts, 48);
+            const topPipeMesh = new THREE.Mesh(topPipeGeo, steelMat);
+            group.add(topPipeMesh);
+
+            // Superficie mecanizada brillante del bisel y talón del tubo superior (con arista viva entre talón y bisel)
+            const topBevelPts = [
+                new THREE.Vector2(innerR, halfGap - 0.0003),
+                new THREE.Vector2(innerR + rootFace, halfGap - 0.0003),
+                new THREE.Vector2(innerR + rootFace, halfGap - 0.0003),
+                new THREE.Vector2(outerR + 0.0003, halfGap + bevelH)
+            ];
+            const topBevelMesh = new THREE.Mesh(
+                new THREE.LatheGeometry(topBevelPts, 48),
+                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.18, metalness: 0.92, side: THREE.DoubleSide })
+            );
+            group.add(topBevelMesh);
+
+            // Perfil de revolución del tubo inferior con vértices duplicados en esquinas para forzar ARISTAS VIVAS
+            const botPts = [
+                new THREE.Vector2(innerR, -halfGap - pipeLen),
+                new THREE.Vector2(outerR, -halfGap - pipeLen),
+                new THREE.Vector2(outerR, -halfGap - pipeLen),
+                new THREE.Vector2(outerR, -halfGap - bevelH),
+                new THREE.Vector2(outerR, -halfGap - bevelH),
+                new THREE.Vector2(innerR + rootFace, -halfGap),
+                new THREE.Vector2(innerR + rootFace, -halfGap),
+                new THREE.Vector2(innerR, -halfGap),
+                new THREE.Vector2(innerR, -halfGap),
+                new THREE.Vector2(innerR, -halfGap - pipeLen)
+            ];
+            const botPipeGeo = new THREE.LatheGeometry(botPts, 48);
+            const botPipeMesh = new THREE.Mesh(botPipeGeo, steelMat);
+            group.add(botPipeMesh);
+
+            // Superficie mecanizada brillante del bisel y talón del tubo inferior (con arista viva)
+            const botBevelPts = [
+                new THREE.Vector2(outerR + 0.0003, -halfGap - bevelH),
+                new THREE.Vector2(innerR + rootFace, -halfGap + 0.0003),
+                new THREE.Vector2(innerR + rootFace, -halfGap + 0.0003),
+                new THREE.Vector2(innerR, -halfGap + 0.0003)
+            ];
+            const botBevelMesh = new THREE.Mesh(
+                new THREE.LatheGeometry(botBevelPts, 48),
+                new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.18, metalness: 0.92, side: THREE.DoubleSide })
+            );
+            group.add(botBevelMesh);
+
+            // Pared interior sombreada para resaltar que el tubo es totalmente hueco
+            const innerSleeveTop = new THREE.Mesh(
+                new THREE.CylinderGeometry(innerR - 0.0004, innerR - 0.0004, pipeLen - 0.002, 40, 1, true),
+                innerPipeMat
+            );
+            innerSleeveTop.position.y = halfGap + pipeLen / 2;
+            group.add(innerSleeveTop);
+
+            const innerSleeveBot = new THREE.Mesh(
+                new THREE.CylinderGeometry(innerR - 0.0004, innerR - 0.0004, pipeLen - 0.002, 40, 1, true),
+                innerPipeMat
+            );
+            innerSleeveBot.position.y = -halfGap - pipeLen / 2;
+            group.add(innerSleeveBot);
+
+            // Marcas longitudinales sutiles en el exterior del tubo para apreciar claramente el giro en 1G (PA rotado)
+            const seamMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.5, metalness: 0.7 });
+            for (let i = 0; i < 4; i++) {
+                const angle = (i * Math.PI) / 2;
+                const markTop = new THREE.Mesh(new THREE.BoxGeometry(0.0025, pipeLen - bevelH - 0.01, 0.0025), seamMat);
+                markTop.position.set(
+                    Math.cos(angle) * (outerR + 0.0005),
+                    halfGap + bevelH + (pipeLen - bevelH) / 2,
+                    Math.sin(angle) * (outerR + 0.0005)
+                );
+                group.add(markTop);
+
+                const markBot = new THREE.Mesh(new THREE.BoxGeometry(0.0025, pipeLen - bevelH - 0.01, 0.0025), seamMat);
+                markBot.position.set(
+                    Math.cos(angle) * (outerR + 0.0005),
+                    -halfGap - bevelH - (pipeLen - bevelH) / 2,
+                    Math.sin(angle) * (outerR + 0.0005)
+                );
+                group.add(markBot);
+            }
+
+            return group;
+        }
+
+        function buildWorkpieceGeometry(pos) {
+            for (let i = workpieceGroup.children.length - 1; i >= 0; i--) {
+                const child = workpieceGroup.children[i];
+                if (child !== electrodeAssembly) workpieceGroup.remove(child);
+            }
+            weldBeadMeshes = [];
+            rotatingPipeGroup = null;
+
+            if (pos.geometryType === 'butt_plate') {
+                workpieceGroup.add(createBeveledButtPlates(false));
+
+            } else if (pos.geometryType === 'butt_plate_vertical') {
+                workpieceGroup.add(createBeveledButtPlates(true));
+
+            } else if (pos.geometryType === 'tee_plate') {
+                const basePlate = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.014, 0.16), steelMat);
+                workpieceGroup.add(basePlate);
+
+                const vertPlate = new THREE.Mesh(new THREE.BoxGeometry(0.30, 0.13, 0.014), steelMat);
+                vertPlate.position.set(0, 0.072, 0);
+                workpieceGroup.add(vertPlate);
+
+            } else if (pos.geometryType === 'tee_plate_vertical') {
+                // Probeta en T puesta de pie en vertical (3F / PF / PG en ángulo)
+                const backPlate = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.30, 0.014), steelMat);
+                backPlate.position.set(0, 0, 0);
+                workpieceGroup.add(backPlate);
+
+                const webPlate = new THREE.Mesh(new THREE.BoxGeometry(0.014, 0.30, 0.13), steelMat);
+                webPlate.position.set(0, 0, 0.072);
+                workpieceGroup.add(webPlate);
+
+            } else if (pos.geometryType === 'pipe_plate_5f') {
+                const backPlate = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.26, 0.016), steelMat);
+                backPlate.position.set(0, 0, -0.008);
+                workpieceGroup.add(backPlate);
+
+                // Tubo de pared gruesa hueco con aristas vivas en su extremo para 5F
+                const outerR = 0.070;
+                const innerR = 0.052;
+                const len = 0.19;
+                const pipePts = [
+                    new THREE.Vector2(innerR, 0),
+                    new THREE.Vector2(outerR, 0),
+                    new THREE.Vector2(outerR, 0),
+                    new THREE.Vector2(outerR, len),
+                    new THREE.Vector2(outerR, len),
+                    new THREE.Vector2(innerR, len),
+                    new THREE.Vector2(innerR, len),
+                    new THREE.Vector2(innerR, 0)
+                ];
+                const thickPipe = new THREE.Mesh(new THREE.LatheGeometry(pipePts, 44), steelMat);
+                thickPipe.rotation.x = Math.PI / 2;
+                thickPipe.position.set(0, 0, 0);
+                workpieceGroup.add(thickPipe);
+
+                const innerWall5F = new THREE.Mesh(
+                    new THREE.CylinderGeometry(innerR - 0.0005, innerR - 0.0005, len - 0.002, 36, 1, true),
+                    innerPipeMat
+                );
+                innerWall5F.rotation.x = Math.PI / 2;
+                innerWall5F.position.set(0, 0, len / 2);
+                workpieceGroup.add(innerWall5F);
+
+            } else if (pos.geometryType === 'pipe_butt') {
+                rotatingPipeGroup = createBeveledButtPipes();
+                workpieceGroup.add(rotatingPipeGroup);
+            }
+
+            const numRipples = 36;
+            for (let i = 0; i < numRipples; i++) {
+                const t = i / (numRipples - 1);
+                const ripple = new THREE.Mesh(new THREE.SphereGeometry(0.0095, 12, 10), weldBeadMat.clone());
+                ripple.position.copy(getWeldPointAt(pos, t));
+                if (pos.geometryType && pos.geometryType.includes('vertical')) {
+                    ripple.scale.set(1.18, 0.78, 0.9);
+                } else {
+                    ripple.scale.set(0.85, 0.55, 1.15);
+                }
+                if (pos.isRotatingPipe && rotatingPipeGroup) {
+                    rotatingPipeGroup.add(ripple);
+                } else {
+                    workpieceGroup.add(ripple);
+                }
+                weldBeadMeshes.push(ripple);
+            }
+
+            // Flecha verde 3D indicando claramente el sentido de avance del soldeo (o del giro del tubo en 1G)
+            if (pos.isRotatingPipe && rotatingPipeGroup) {
+                const pStart = new THREE.Vector3(0.108, 0, -0.045);
+                const dirVec = new THREE.Vector3(0, 0, 1).normalize();
+                const arrowHelper = new THREE.ArrowHelper(dirVec, pStart, 0.10, 0x10b981, 0.030, 0.018);
+                workpieceGroup.add(arrowHelper);
+            } else {
+                const pStart = getWeldPointAt(pos, 0.18);
+                const pEnd = getWeldPointAt(pos, 0.82);
+                const dirVec = new THREE.Vector3().subVectors(pEnd, pStart).normalize();
+                const arrowOffset = pos.geometryType && pos.geometryType.includes('vertical')
+                    ? new THREE.Vector3(0.042, 0, 0.035)
+                    : new THREE.Vector3(0, 0.034, 0.034);
+                const arrowHelper = new THREE.ArrowHelper(dirVec, pStart.clone().add(arrowOffset), 0.18, 0x10b981, 0.036, 0.022);
+                workpieceGroup.add(arrowHelper);
+            }
+
+            workpieceGroup.position.set(...pos.workpiecePos);
+            workpieceGroup.rotation.set(...pos.workpieceRot);
+        }
+
+        function getWeldPointAt(pos, t) {
+            if (pos.weldPath.type === 'pipe_1g_rot') {
+                // Los puntos del cordón nacen en las 12h (+X local = +Y global arriba) y giran con el tubo
+                const angle = t * Math.PI * 1.35;
+                const r = pos.weldPath.radius;
+                return new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r);
+            } else if (pos.weldPath.type === 'circle_2g_horiz') {
+                // Avance horizontal (cornisa) alrededor del tubo vertical fijo
+                const angle = Math.PI * 0.85 - t * Math.PI * 0.70;
+                const r = pos.weldPath.radius;
+                return new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r);
+            } else if (pos.weldPath.type === 'circle_5f') {
+                const angle = -Math.PI / 2 + t * Math.PI;
+                const r = pos.weldPath.radius;
+                return new THREE.Vector3(Math.cos(angle) * r, Math.sin(angle) * r, 0.006);
+            } else if (pos.weldPath.type === 'circle_butt_up') {
+                const angle = t * Math.PI;
+                const r = pos.weldPath.radius;
+                return new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r);
+            } else if (pos.weldPath.type === 'circle_butt_down') {
+                const angle = (1 - t) * Math.PI;
+                const r = pos.weldPath.radius;
+                return new THREE.Vector3(Math.cos(angle) * r, 0, Math.sin(angle) * r);
+            } else {
+                const s = new THREE.Vector3(...pos.weldPath.start);
+                const e = new THREE.Vector3(...pos.weldPath.end);
+                return new THREE.Vector3().lerpVectors(s, e, t);
+            }
+        }
+
+        function selectWeldingPosition(posId) {
+            const found = WELDING_POSITIONS.find(p => p.id === posId) || WELDING_POSITIONS[0];
+            state.currentPos = found;
+            state.weldProgress = 0;
+
+            buildWorkpieceGeometry(found);
+
+            document.getElementById('badge-type').textContent = found.typeBadge;
+            document.getElementById('info-common-name').textContent = found.commonName;
+            document.getElementById('info-iso').textContent = found.iso;
+            document.getElementById('info-aws').textContent = found.aws;
+
+            const notice1G = document.getElementById('pipe-1g-notice');
+            if (notice1G) {
+                notice1G.classList.toggle('hidden', found.id !== 'pipe_1g');
+            }
+
+            document.querySelectorAll('.asme-pos-card').forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.id === found.id);
+            });
+
+            updateISOCircleHighlight(found.id);
+            renderISOVariantButtons(found.id);
+        }
+
+        function renderASMEGrid(groupKey) {
+            state.asmeTab = groupKey;
+            const gridEl = document.getElementById('asme-buttons-grid');
+            gridEl.innerHTML = '';
+
+            const items = WELDING_POSITIONS.filter(p => p.asmeGroup === groupKey);
+            items.forEach(pos => {
+                const isActive = pos.id === state.currentPos.id;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.dataset.id = pos.id;
+                btn.className = `asme-pos-card pos-btn p-2 rounded-xl border border-slate-800 bg-slate-900/90 text-left flex flex-col justify-between cursor-pointer ${isActive ? 'active' : 'text-slate-100 hover:border-amber-500/50'}`;
+                btn.innerHTML = `
+                    <span class="text-base font-black tracking-tight">${pos.asmeCode}</span>
+                    <span class="text-[10px] font-bold opacity-90 leading-tight mt-0.5">${pos.commonName}</span>
+                `;
+                btn.addEventListener('click', () => selectWeldingPosition(pos.id));
+                gridEl.appendChild(btn);
+            });
+        }
+
+        document.querySelectorAll('.asme-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.asmeTab;
+                document.querySelectorAll('.asme-tab-btn').forEach(b => {
+                    b.className = 'asme-tab-btn py-1.5 rounded-lg text-slate-300 hover:text-white transition cursor-pointer';
+                });
+                btn.className = 'asme-tab-btn py-1.5 rounded-lg bg-amber-500 text-slate-950 transition cursor-pointer';
+                renderASMEGrid(tab);
+                const firstInTab = WELDING_POSITIONS.find(p => p.asmeGroup === tab);
+                if (firstInTab) selectWeldingPosition(firstInTab.id);
+            });
+        });
+
+        document.querySelectorAll('.iso-tab-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const tab = btn.dataset.isoTab;
+                state.isoTab = tab;
+                document.querySelectorAll('.iso-tab-btn').forEach(b => {
+                    b.className = 'iso-tab-btn py-1.5 rounded-lg text-slate-300 hover:text-white transition cursor-pointer';
+                });
+                btn.className = 'iso-tab-btn py-1.5 rounded-lg bg-sky-400 text-slate-950 transition cursor-pointer';
+
+                const circleCont = document.getElementById('iso-circle-container');
+                const pipeCont = document.getElementById('iso-pipe-container');
+                if (tab === 'CIRCLE') {
+                    circleCont.classList.remove('hidden');
+                    circleCont.classList.add('flex');
+                    pipeCont.classList.add('hidden');
+                    pipeCont.classList.remove('flex');
+                    selectWeldingPosition('pa_1g');
+                } else {
+                    circleCont.classList.add('hidden');
+                    circleCont.classList.remove('flex');
+                    pipeCont.classList.remove('hidden');
+                    pipeCont.classList.add('flex');
+                    selectWeldingPosition('pipe_1g');
+                    renderISOPipeList();
+                }
+            });
+        });
+
+        function updateISOCircleHighlight(activePosId) {
+            let targetNodeId = activePosId;
+            if (activePosId === 'pa_1f') targetNodeId = 'pa_1g';
+            if (activePosId === 'pf_3f') targetNodeId = 'pf_3g';
+            if (activePosId === 'pg_3f') targetNodeId = 'pg_3g';
+
+            document.querySelectorAll('.wheel-node').forEach(node => {
+                const isSelected = node.dataset.isoNode === targetNodeId;
+                const bgShape = node.querySelector('.node-bg');
+                const textEl = node.querySelector('text');
+
+                if (isSelected) {
+                    bgShape.setAttribute('fill', '#f59e0b');
+                    bgShape.setAttribute('stroke', '#fde68a');
+                    if (textEl) textEl.setAttribute('fill', '#090d16');
+                } else {
+                    bgShape.setAttribute('fill', '#0f172a');
+                    const isVert = node.dataset.isoNode === 'pf_3g' || node.dataset.isoNode === 'pg_3g';
+                    bgShape.setAttribute('stroke', isVert ? '#10b981' : '#38bdf8');
+                    if (textEl) textEl.setAttribute('fill', '#ffffff');
+                }
+            });
+
+            ['pa_1g', 'pb_2f', 'pc_2g', 'pd_4f', 'pe_4g'].forEach(id => {
+                const arrowLine = document.getElementById(`arrow-${id}`);
+                if (!arrowLine) return;
+                if (id === targetNodeId) {
+                    arrowLine.setAttribute('stroke', '#f59e0b');
+                    arrowLine.setAttribute('stroke-width', '4');
+                    arrowLine.setAttribute('marker-end', 'url(#arrow-active)');
+                } else {
+                    arrowLine.setAttribute('stroke', '#38bdf8');
+                    arrowLine.setAttribute('stroke-width', '2.5');
+                    arrowLine.setAttribute('marker-end', 'url(#arrow-center)');
+                }
+            });
+        }
+
+        function renderISOVariantButtons(posId) {
+            const bar = document.getElementById('iso-variant-bar');
+            const container = document.getElementById('iso-variant-btns');
+            container.innerHTML = '';
+
+            let variants = [];
+            if (posId === 'pa_1g' || posId === 'pa_1f') {
+                variants = [
+                    { id: 'pa_1g', label: 'A Tope (1G)' },
+                    { id: 'pa_1f', label: 'Ángulo (1F)' }
+                ];
+            } else if (posId === 'pf_3g' || posId === 'pf_3f') {
+                variants = [
+                    { id: 'pf_3g', label: 'A Tope (3G ↑)' },
+                    { id: 'pf_3f', label: 'Ángulo (3F ↑)' }
+                ];
+            } else if (posId === 'pg_3g' || posId === 'pg_3f') {
+                variants = [
+                    { id: 'pg_3g', label: 'A Tope (3G ↓)' },
+                    { id: 'pg_3f', label: 'Ángulo (3F ↓)' }
+                ];
+            }
+
+            if (variants.length > 0) {
+                bar.classList.remove('hidden');
+                bar.classList.add('flex');
+                variants.forEach(v => {
+                    const b = document.createElement('button');
+                    b.type = 'button';
+                    const active = v.id === state.currentPos.id;
+                    b.className = `px-2 py-1 rounded-lg text-[11px] font-extrabold transition cursor-pointer ${active ? 'bg-sky-400 text-slate-950' : 'bg-slate-800 text-slate-300 hover:text-white'}`;
+                    b.textContent = v.label;
+                    b.addEventListener('click', () => selectWeldingPosition(v.id));
+                    container.appendChild(b);
+                });
+            } else {
+                bar.classList.add('hidden');
+                bar.classList.remove('flex');
+            }
+        }
+
+        document.querySelectorAll('.wheel-node').forEach(node => {
+            node.addEventListener('click', () => selectWeldingPosition(node.dataset.isoNode));
+        });
+
+        function renderISOPipeList() {
+            const listEl = document.getElementById('iso-pipe-list');
+            listEl.innerHTML = '';
+            const pipes = WELDING_POSITIONS.filter(p => p.asmeGroup === 'PIPE');
+            pipes.forEach(pos => {
+                const isActive = pos.id === state.currentPos.id;
+                const btn = document.createElement('button');
+                btn.type = 'button';
+                btn.className = `pos-btn p-2.5 rounded-xl border border-slate-800 bg-slate-900/90 text-left flex items-center justify-between cursor-pointer ${isActive ? 'active' : 'text-slate-100 hover:border-sky-400/50'}`;
+                btn.innerHTML = `
+                    <div>
+                        <div class="text-sm font-black">${pos.iso}</div>
+                        <div class="text-[11px] opacity-85 font-semibold">${pos.commonName}</div>
+                    </div>
+                `;
+                btn.addEventListener('click', () => {
+                    selectWeldingPosition(pos.id);
+                    renderISOPipeList();
+                });
+                listEl.appendChild(btn);
+            });
+        }
+
+        function setNormSystem(mode) {
+            state.normMode = mode;
+            const btnAsme = document.getElementById('norm-asme');
+            const btnIso = document.getElementById('norm-iso');
+            const panelAsme = document.getElementById('panel-asme');
+            const panelIso = document.getElementById('panel-iso');
+            const boxAsme = document.getElementById('box-asme');
+            const boxIso = document.getElementById('box-iso');
+
+            if (mode === 'ASME') {
+                btnAsme.className = 'px-3 py-1.5 rounded-xl text-xs font-extrabold bg-amber-500 text-slate-950 transition cursor-pointer';
+                btnIso.className = 'px-3 py-1.5 rounded-xl text-xs font-extrabold text-slate-300 hover:text-white transition cursor-pointer';
+
+                panelAsme.classList.remove('hidden');
+                panelAsme.classList.add('flex');
+                panelIso.classList.add('hidden');
+                panelIso.classList.remove('flex');
+
+                boxAsme.className = 'bg-slate-900/95 border-2 border-amber-500 rounded-xl px-2.5 py-1 text-center min-w-[64px]';
+                boxIso.className = 'bg-slate-900/95 border border-slate-700 rounded-xl px-2.5 py-1 text-center min-w-[64px]';
+
+                if (state.currentPos.asmeGroup === 'PIPE') {
+                    selectWeldingPosition('pa_1g');
+                    renderASMEGrid('G');
+                } else {
+                    renderASMEGrid(state.asmeTab);
+                }
+            } else {
+                btnIso.className = 'px-3 py-1.5 rounded-xl text-xs font-extrabold bg-sky-400 text-slate-950 transition cursor-pointer';
+                btnAsme.className = 'px-3 py-1.5 rounded-xl text-xs font-extrabold text-slate-300 hover:text-white transition cursor-pointer';
+
+                panelAsme.classList.add('hidden');
+                panelAsme.classList.remove('flex');
+                panelIso.classList.remove('hidden');
+                panelIso.classList.add('flex');
+
+                boxIso.className = 'bg-slate-900/95 border-2 border-sky-400 rounded-xl px-2.5 py-1 text-center min-w-[64px]';
+                boxAsme.className = 'bg-slate-900/95 border border-slate-700 rounded-xl px-2.5 py-1 text-center min-w-[64px]';
+
+                updateISOCircleHighlight(state.currentPos.id);
+                renderISOVariantButtons(state.currentPos.id);
+                if (state.isoTab === 'PIPE') renderISOPipeList();
+            }
+        }
+
+        document.getElementById('norm-asme').addEventListener('click', () => setNormSystem('ASME'));
+        document.getElementById('norm-iso').addEventListener('click', () => setNormSystem('ISO'));
+
+        document.getElementById('btn-toggle-arc').addEventListener('click', () => {
+            state.isWeldingAnim = !state.isWeldingAnim;
+            document.getElementById('arc-btn-text').textContent = state.isWeldingAnim ? 'Pausar' : 'Reanudar';
+        });
+
+        document.getElementById('btn-reset-cam').addEventListener('click', () => {
+            camera.position.set(0.36, 1.44, 0.58);
+            controls.target.set(0, 1.25, 0);
+            controls.update();
+            workbenchPivot.position.set(0, 0, 0);
+            workbenchPivot.rotation.set(0, 0, 0);
+        });
+
+        const controllerModelFactory = new XRControllerModelFactory();
+        const controllerRight = renderer.xr.getController(0);
+        const controllerLeft = renderer.xr.getController(1);
+        scene.add(controllerRight);
+        scene.add(controllerLeft);
+
+        const gripRight = renderer.xr.getControllerGrip(0);
+        gripRight.add(controllerModelFactory.createControllerModel(gripRight));
+        scene.add(gripRight);
+
+        const gripLeft = renderer.xr.getControllerGrip(1);
+        gripLeft.add(controllerModelFactory.createControllerModel(gripLeft));
+        scene.add(gripLeft);
+
+        controllerRight.addEventListener('selectstart', () => {
+            const idx = WELDING_POSITIONS.findIndex(p => p.id === state.currentPos.id);
+            selectWeldingPosition(WELDING_POSITIONS[(idx + 1) % WELDING_POSITIONS.length].id);
+        });
+
+        let isGrabbingVR = false;
+        let grabbingCtrl = null;
+        const grabOffset = new THREE.Matrix4();
+
+        function startVRGrab(ctrl) {
+            isGrabbingVR = true;
+            grabbingCtrl = ctrl;
+            const inv = new THREE.Matrix4().copy(ctrl.matrixWorld).invert();
+            grabOffset.multiplyMatrices(inv, workbenchPivot.matrixWorld);
+        }
+        function endVRGrab(ctrl) {
+            if (grabbingCtrl === ctrl) {
+                isGrabbingVR = false;
+                grabbingCtrl = null;
+            }
+        }
+        controllerRight.addEventListener('squeezestart', () => startVRGrab(controllerRight));
+        controllerRight.addEventListener('squeezeend', () => endVRGrab(controllerRight));
+        controllerLeft.addEventListener('squeezestart', () => startVRGrab(controllerLeft));
+        controllerLeft.addEventListener('squeezeend', () => endVRGrab(controllerLeft));
+
+        async function startXR(mode) {
+            const toast = document.getElementById('toast');
+            if (!navigator.xr) {
+                toast.textContent = 'Abre este enlace desde el navegador de tus Meta Quest 3.';
+                toast.classList.remove('opacity-0');
+                setTimeout(() => toast.classList.add('opacity-0'), 3000);
+                return;
+            }
+            try {
+                const supported = await navigator.xr.isSessionSupported(mode);
+                if (!supported) {
+                    toast.textContent = `Modo ${mode} listo para abrir en Meta Quest 3.`;
+                    toast.classList.remove('opacity-0');
+                    setTimeout(() => toast.classList.add('opacity-0'), 3000);
+                    return;
+                }
+                const session = await navigator.xr.requestSession(mode, { optionalFeatures: ['local-floor', 'bounded-floor', 'hand-tracking'] });
+                renderer.xr.setSession(session);
+                scene.background = mode === 'immersive-ar' ? null : new THREE.Color(0x070b12);
+                session.addEventListener('end', () => {
+                    scene.background = new THREE.Color(0x070b12);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        document.getElementById('btn-xr-ar').addEventListener('click', () => startXR('immersive-ar'));
+        document.getElementById('btn-xr-vr').addEventListener('click', () => startXR('immersive-vr'));
+
+        const clock = new THREE.Clock();
+        const upAxis = new THREE.Vector3(0, 1, 0);
+
+        function animate() {
+            const dt = Math.min(clock.getDelta(), 0.1);
+
+            if (!renderer.xr.isPresenting) {
+                controls.update();
+            } else if (isGrabbingVR && grabbingCtrl) {
+                const m = new THREE.Matrix4().multiplyMatrices(grabbingCtrl.matrixWorld, grabOffset);
+                workbenchPivot.position.setFromMatrixPosition(m);
+                workbenchPivot.quaternion.setFromRotationMatrix(m);
+            }
+
+            if (state.isWeldingAnim) {
+                state.weldProgress += dt * 0.24;
+                if (state.weldProgress > 1) state.weldProgress = 0;
+            }
+
+            const pos = state.currentPos;
+
+            if (pos.isRotatingPipe && rotatingPipeGroup) {
+                // En 1G Rotado: el tubo gira sobre su eje longitudinal y el electrodo permanece fijo arriba del todo (12h, apuntando hacia el suelo)
+                rotatingPipeGroup.rotation.y = state.weldProgress * Math.PI * 1.35;
+                electrodeAssembly.position.set(pos.weldPath.radius, 0, 0);
+                electrodeAssembly.quaternion.setFromUnitVectors(upAxis, pos.electrodeDir);
+            } else {
+                if (rotatingPipeGroup) rotatingPipeGroup.rotation.y = 0;
+                const currentLocalPt = getWeldPointAt(pos, state.weldProgress);
+                electrodeAssembly.position.copy(currentLocalPt);
+
+                if (pos.weldPath.type === 'circle_2g_horiz') {
+                    const radialOut = new THREE.Vector3(currentLocalPt.x, 0, currentLocalPt.z).normalize();
+                    const tangent = new THREE.Vector3(-radialOut.z, 0, radialOut.x).normalize();
+                    const dir2G = radialOut.multiplyScalar(0.86).add(new THREE.Vector3(0, 0.22, 0)).add(tangent.multiplyScalar(-0.28)).normalize();
+                    electrodeAssembly.quaternion.setFromUnitVectors(upAxis, dir2G);
+                } else if (pos.weldPath.type && pos.weldPath.type.startsWith('circle')) {
+                    const radialDir = currentLocalPt.clone().normalize().add(new THREE.Vector3(0, 0.35, 0.35)).normalize();
+                    electrodeAssembly.quaternion.setFromUnitVectors(upAxis, radialDir);
+                } else {
+                    electrodeAssembly.quaternion.setFromUnitVectors(upAxis, pos.electrodeDir);
+                }
+            }
+
+            // Oscilación lateral (pequeño zigzag) en las posiciones verticales ascendentes (PF ↑ / 3G y 3F)
+            if (pos.weaveAxis && state.isWeldingAnim) {
+                const weave = Math.sin(state.weldProgress * Math.PI * 24) * 0.0065;
+                if (pos.weaveAxis === 'x') {
+                    electrodeAssembly.position.x += weave;
+                } else if (pos.weaveAxis === 'xz') {
+                    electrodeAssembly.position.x += weave * 0.7;
+                    electrodeAssembly.position.z += weave * 0.7;
+                }
+            }
+
+            const totalRipples = weldBeadMeshes.length;
+            weldBeadMeshes.forEach((mesh, idx) => {
+                const rippleT = idx / (totalRipples - 1);
+                if (rippleT <= state.weldProgress) {
+                    mesh.visible = true;
+                    const age = state.weldProgress - rippleT;
+                    if (age < 0.08) {
+                        mesh.material.color.setHex(0xf97316);
+                        mesh.material.emissive.setHex(0xea580c);
+                        mesh.material.emissiveIntensity = 1.2 * (1 - age / 0.08);
+                    } else if (age < 0.18) {
+                        mesh.material.color.setHex(0x991b1b);
+                        mesh.material.emissive.setHex(0x7f1d1d);
+                        mesh.material.emissiveIntensity = 0.4;
+                    } else {
+                        mesh.material.color.setHex(0x64748b);
+                        mesh.material.emissive.setHex(0x000000);
+                        mesh.material.emissiveIntensity = 0;
+                    }
+                } else {
+                    mesh.visible = false;
+                }
+            });
+
+            const arcWorldPos = new THREE.Vector3();
+            electrodeAssembly.getWorldPosition(arcWorldPos);
+            arcLight.position.copy(arcWorldPos);
+
+            if (state.isWeldingAnim) {
+                arcLight.intensity = 3.2 + Math.random() * 3.5;
+                for (let i = 0; i < SPARK_COUNT; i++) {
+                    if (Math.random() < 0.22) {
+                        resetSpark(i, arcWorldPos);
+                    } else {
+                        sparkPositions[i * 3] += sparkVelocities[i].x * dt;
+                        sparkPositions[i * 3 + 1] += sparkVelocities[i].y * dt;
+                        sparkPositions[i * 3 + 2] += sparkVelocities[i].z * dt;
+                        sparkVelocities[i].y -= 2.8 * dt;
+                    }
+                }
+                sparkGeo.attributes.position.needsUpdate = true;
+                sparkSystem.visible = true;
+            } else {
+                arcLight.intensity = 0.8;
+                sparkSystem.visible = false;
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        renderASMEGrid('G');
+        selectWeldingPosition('pa_1g');
+        renderer.setAnimationLoop(animate);
+    </script>
+</body>
+</html>
